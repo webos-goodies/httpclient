@@ -694,11 +694,8 @@ class HTTPClient
           inflate_stream = Zlib::Inflate.new(Zlib::MAX_WBITS + 32)
           original_block = block
           if @chunked
-            buffer = ''
-            block = Proc.new { |buf|
-              # we need to strip last \r\n from string for proper gzip decompression
-              buffer += buf[0..-3]
-            }
+            buffer = []
+            block = Proc.new { |buf| buffer << buf }
           else
             block = Proc.new { |buf|
               original_block.call(inflate_stream.inflate(buf))
@@ -707,9 +704,9 @@ class HTTPClient
         end
         if @chunked
           read_body_chunked(&block)
-          if @gzipped
+          if @gzipped and @transparent_gzip_decompression
             # puts buffer
-            original_block.call(inflate_stream.inflate(buffer))
+            original_block.call(inflate_stream.inflate(buffer.join('')))
           end
         elsif @content_length
           read_body_length(&block)
